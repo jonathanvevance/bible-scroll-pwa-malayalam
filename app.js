@@ -537,7 +537,7 @@ async function renderTimeline() {
     });
     const meta = c.updatedAt ? `${stamp(c)} · Edited` : stamp(c);
     const row = el('li', { className: 'swipe-row' },
-      el('div', { className: 'swipe-actions' }, share, edit, del),
+      el('div', { className: 'swipe-actions' }, edit, share, del),
       el('div', { className: 'swipe-content' },
         el('p', { className: 'reflection-meta', textContent: meta }),
         el('p', { className: 'reflection-body', textContent: c.body })));
@@ -546,7 +546,7 @@ async function renderTimeline() {
   }));
 }
 
-// Swiping a reflection left reveals Share, Edit and Delete behind it, as in Mail. One row open at a time.
+// Swiping a reflection left reveals Edit, Share and Delete behind it, as in Mail. One row open at a time.
 const SWIPE_ACTIONS_WIDTH = 240;
 let openRow = null;
 
