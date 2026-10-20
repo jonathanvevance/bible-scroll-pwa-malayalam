@@ -1,7 +1,7 @@
 // Reflections, stored in IndexedDB (the browser's on-device database). Same shape as
 // the iOS VerseComment: keyed by the packed verse key, never the verse text.
 
-const DB_NAME = 'bible-scroll';
+const DB_NAME = 'bible-scroll-ml';
 const STORE = 'comments';
 /** Favourites and bookmarks: one row per (kind, verseKey). */
 const MARKS = 'marks';

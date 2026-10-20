@@ -1,7 +1,8 @@
 import { BOOKS } from './books.js';
 import { Journal } from './journal.js';
 
-const LAST_VERSE = 'lastVerseKey';
+// Storage names carry an 'ml.' prefix: the English app may share this origin.
+const LAST_VERSE = 'ml.lastVerseKey';
 const ADVANCE_DELAY_MS = 700;
 const SETTLE_DELAY_MS = 140;
 
@@ -408,7 +409,7 @@ feed.addEventListener('click', (e) => {
 });
 
 verseActions.share = async (v) => {
-  const text = `“${v.text}” (${verseName(v)}, BSB)`;
+  const text = `“${v.text}” (${verseName(v)}, Sathyavedapusthakam)`;
   if (navigator.share) {
     try { await navigator.share({ text }); } catch { /* cancelled */ }
     return;
@@ -781,7 +782,7 @@ tabBar.addEventListener('click', (e) => {
 
 // ---------- Reflections tab ----------
 
-const FILTER = 'reflectionsFilter';
+const FILTER = 'ml.reflectionsFilter';
 const reflectionsFilter = document.getElementById('reflectionsFilter');
 const reflectionsList = document.getElementById('reflectionsList');
 const reflectionsEmpty = document.getElementById('reflectionsEmpty');
@@ -936,8 +937,8 @@ reflectionsList.addEventListener('click', (e) => {
 // Restoring only needs id, verseKey, body, createdAt, timeZoneID and updatedAt; the reference,
 // verse text and ISO date are there so the file still makes sense without the app.
 
-const LAST_BACKUP = 'lastBackupAt';
-const LAST_BACKUP_COUNT = 'lastBackupCount';
+const LAST_BACKUP = 'ml.lastBackupAt';
+const LAST_BACKUP_COUNT = 'ml.lastBackupCount';
 const BACKUP_FORMAT = 1;
 const backup = document.getElementById('backup');
 const backupStatus = document.getElementById('backupStatus');
@@ -973,12 +974,12 @@ async function backupFile() {
     app: 'Bible Scroll',
     format: BACKUP_FORMAT,
     exportedAt: now.toISOString(),
-    translation: 'BSB',
+    translation: 'Sathyavedapusthakam 1910',
     count: reflections.length,
     reflections,
   };
   // One fixed name, so saving to the same folder offers to replace the last backup.
-  return new File([JSON.stringify(data, null, 2)], 'Bible Scroll backup.json', { type: 'application/json' });
+  return new File([JSON.stringify(data, null, 2)], 'Bible Scroll Malayalam backup.json', { type: 'application/json' });
 }
 
 function setBackupEnabled(on) {
@@ -1085,7 +1086,7 @@ async function shareBackup() {
 // backup is over a week old (or there has never been one). A red dot marks the Reflections tab
 // and the backup button until then; the banner can be put off for a few days.
 
-const SNOOZED = 'backupSnoozedUntil';
+const SNOOZED = 'ml.backupSnoozedUntil';
 const DAY_MS = 86_400_000;
 const backupBannerDetail = document.getElementById('backupBannerDetail');
 
@@ -1171,7 +1172,7 @@ restoreFile.addEventListener('change', async () => {
 
 async function start() {
   const [data, opened] = await Promise.all([
-    fetch('bsb.json').then((r) => r.json()),
+    fetch('mal1910.json').then((r) => r.json()),
     Journal.open(),
   ]);
   bible = new Bible(data.books);
