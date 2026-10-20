@@ -5,7 +5,7 @@
 // Only runs over HTTPS (service workers need a secure origin).
 
 // Prefixed so the English app's caches on the same origin are left alone.
-const CACHE = 'bible-scroll-ml-v61';
+const CACHE = 'bible-scroll-ml-v62';
 const ASSETS = [
   './', 'index.html', 'style.css', 'app.js', 'journal.js', 'books.js', 'mal1910.json',
   'manifest.webmanifest', 'icons/scroll-180.png', 'icons/scroll-192.png', 'icons/scroll-512.png',

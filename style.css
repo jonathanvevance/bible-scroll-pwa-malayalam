@@ -13,6 +13,8 @@
   --press: #d1d1d6; /* row highlight while pressed, as in iOS lists */
   --serif: ui-serif, "New York", Georgia, serif;
   --sans: system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  /* Reflections are the reader's own voice: rounded, set apart from the serif verse. */
+  --reflection: ui-rounded, var(--sans);
   /* Set from visualViewport so sheets sit above the on-screen keyboard. */
   --keyboard: 0px;
   --viewport-height: 100dvh;
@@ -545,8 +547,9 @@ html:has(dialog[open]) .tab-bar {
 }
 .reflection-text {
   margin-top: 8px;
+  font-family: var(--reflection);
   font-size: 17px;
-  line-height: 1.35;
+  line-height: 1.45;
   white-space: pre-wrap;
   -webkit-line-clamp: 6;
 }
@@ -734,7 +737,7 @@ html:has(dialog[open]) .tab-bar {
 }
 
 .reflection-meta { margin: 0; font-size: 12px; font-weight: 600; color: var(--fg-2); }
-.reflection-body { margin: 4px 0 0; font-size: 17px; line-height: 1.35; white-space: pre-wrap; }
+.reflection-body { margin: 4px 0 0; font: 17px/1.45 var(--reflection); white-space: pre-wrap; }
 
 /* Swipe a reflection left to reveal Edit, Share and Delete underneath. */
 .card-list > li.swipe-row { position: relative; padding: 0; }
@@ -851,7 +854,7 @@ html:has(dialog[open]) .tab-bar {
   border: 0;
   background: none;
   color: var(--fg);
-  font: 17px/1.4 var(--sans);
+  font: 17px/1.45 var(--reflection);
   resize: none;
   outline: none;
 }
