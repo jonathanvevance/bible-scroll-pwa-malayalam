@@ -10,7 +10,6 @@ Usage: python3 build.py [path/to/bible-scroll]   (default: ../bible-scroll)
 
 import io
 import json
-import math
 import re
 import struct
 import sys
@@ -91,34 +90,44 @@ def build_malayalam() -> None:
 
 
 def png(size: int) -> bytes:
-    """A warm off-white Latin cross on a deep charcoal tile.
+    """A hanging scroll on white: black rollers top and bottom, a light grey page, a black cross.
 
-    Opaque and full-bleed: iOS rounds the corners itself. The cross stays inside the
-    central 80%, so Android can crop it as a maskable icon.
+    Opaque and full-bleed: iOS rounds the corners itself. Everything stays inside the
+    central circle Android keeps when it crops a maskable icon.
     """
-    top, bottom, cross, glow = (40, 40, 44), (12, 12, 14), (244, 238, 224), (120, 96, 60)
-    centre, bar = size / 2, size * 0.078
-    stem_top, stem_bottom = size * 0.20, size * 0.80
-    arm_y, arm_half = size * 0.38, size * 0.20  # crossbar a third of the way down
+    white, page, ink = (255, 255, 255), (236, 236, 240), (28, 28, 30)
+    scale = 0.92  # shrinks the drawing about the centre to clear the maskable safe zone
+    # Rounded rectangles on a 100-unit tile, drawn in order: (x0, y0, x1, y1, radius, colour).
+    shapes = [
+        (30, 24, 70, 76, 0, page),
+        (22, 17, 78, 26, 4.5, ink),
+        (22, 74, 78, 83, 4.5, ink),
+        (46.5, 33, 53.5, 67, 1, ink),
+        (37, 41, 63, 48, 1, ink),
+    ]
 
-    def inside(x: float, y: float) -> bool:
-        stem = abs(x - centre) <= bar / 2 and stem_top <= y <= stem_bottom
-        arm = abs(y - arm_y) <= bar / 2 and abs(x - centre) <= arm_half
-        return stem or arm
+    def inside(u: float, v: float, x0, y0, x1, y1, r) -> bool:
+        if not (x0 <= u <= x1 and y0 <= v <= y1):
+            return False
+        dx = max(x0 + r - u, 0, u - (x1 - r))
+        dy = max(y0 + r - v, 0, v - (y1 - r))
+        return dx * dx + dy * dy <= r * r
+
+    def colour(u: float, v: float):
+        c = white
+        for *box, fill in shapes:
+            if inside(u, v, *box):
+                c = fill
+        return c
 
     samples = [(i + 0.5) / 4 for i in range(4)]  # 4x4 supersampling for smooth edges
+    to_unit = lambda p: 50 + (p / size * 100 - 50) / scale
     rows = []
     for y in range(size):
-        t = y / (size - 1)
-        base = [a + (b - a) * t for a, b in zip(top, bottom)]
         row = bytearray([0])
         for x in range(size):
-            # A soft warm glow centred where the arms meet.
-            d2 = ((x - centre) ** 2 + (y - arm_y) ** 2) / (size * 0.32) ** 2
-            g = 0.55 * math.exp(-d2)
-            bg = [b + (w - b) * g for b, w in zip(base, glow)]
-            cover = sum(inside(x + sx, y + sy) for sx in samples for sy in samples) / 16
-            row += bytes(round(b + (c - b) * cover) for b, c in zip(bg, cross))
+            hits = [colour(to_unit(x + sx), to_unit(y + sy)) for sx in samples for sy in samples]
+            row += bytes(round(sum(h[i] for h in hits) / 16) for i in range(3))
         rows.append(bytes(row))
     raw = zlib.compress(b"".join(rows), 9)
 
@@ -132,7 +141,7 @@ def png(size: int) -> bytes:
 def write_icons() -> None:
     # Renamed when the design changes: iOS and the service worker cache icons by URL.
     for size in (180, 192, 512):
-        (PWA / "icons" / f"cross-{size}.png").write_bytes(png(size))
+        (PWA / "icons" / f"scroll-{size}.png").write_bytes(png(size))
 
 
 def main() -> None:
