@@ -736,10 +736,11 @@ html:has(dialog[open]) .tab-bar {
 .reflection-meta { margin: 0; font-size: 12px; font-weight: 600; color: var(--fg-2); }
 .reflection-body { margin: 4px 0 0; font-size: 17px; line-height: 1.35; white-space: pre-wrap; }
 
-/* Swipe a reflection left to reveal Edit and Delete underneath. */
+/* Swipe a reflection left to reveal Share, Edit and Delete underneath. */
 .card-list > li.swipe-row { position: relative; padding: 0; }
 .swipe-actions { position: absolute; inset: 0 0 0 auto; display: flex; }
 .swipe-actions button { width: 80px; color: #fff; font-size: 15px; font-weight: 500; }
+.swipe-share { background: var(--accent); }
 .swipe-edit { background: #8e8e93; }
 .swipe-delete { background: var(--destructive); }
 .swipe-content {

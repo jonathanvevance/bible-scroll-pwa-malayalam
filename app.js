@@ -408,19 +408,23 @@ feed.addEventListener('click', (e) => {
   verseActions[action](state.items.find((i) => i.id === id).verse);
 });
 
-verseActions.share = async (v) => {
-  const text = `“${v.text}” (${verseName(v)}, Sathyavedapusthakam)`;
+const verseQuote = (v) => `“${v.text}” (${verseName(v)}, Sathyavedapusthakam)`;
+
+/** Opens the share sheet, or copies where there is none. `notify` must show above any open sheet. */
+async function shareText(text, copied, notify = toast) {
   if (navigator.share) {
     try { await navigator.share({ text }); } catch { /* cancelled */ }
     return;
   }
   try {
     await navigator.clipboard.writeText(text);
-    toast('Verse copied');
+    notify(copied);
   } catch {
-    toast("Couldn't share");
+    notify("Couldn't share");
   }
-};
+}
+
+verseActions.share = (v) => shareText(verseQuote(v), 'Verse copied');
 
 // ---------- Sheets ----------
 
@@ -517,6 +521,11 @@ async function renderTimeline() {
     comments.length === 0 ? '' : comments.length === 1 ? 'Reflection' : `Reflections (${comments.length})`;
   openRow = null;
   document.getElementById('timelineList').replaceChildren(...comments.map((c) => {
+    const share = el('button', { className: 'swipe-share', textContent: 'Share' });
+    share.addEventListener('click', () => {
+      closeOpenRow();
+      shareText(`${c.body}\n\n${verseQuote(timelineVerse)}`, 'Reflection copied', alert);
+    });
     const edit = el('button', { className: 'swipe-edit', textContent: 'Edit' });
     edit.addEventListener('click', () => startEditing(c));
     const del = el('button', { className: 'swipe-delete', textContent: 'Delete' });
@@ -528,7 +537,7 @@ async function renderTimeline() {
     });
     const meta = c.updatedAt ? `${stamp(c)} · Edited` : stamp(c);
     const row = el('li', { className: 'swipe-row' },
-      el('div', { className: 'swipe-actions' }, edit, del),
+      el('div', { className: 'swipe-actions' }, share, edit, del),
       el('div', { className: 'swipe-content' },
         el('p', { className: 'reflection-meta', textContent: meta }),
         el('p', { className: 'reflection-body', textContent: c.body })));
@@ -537,8 +546,8 @@ async function renderTimeline() {
   }));
 }
 
-// Swiping a reflection left reveals Edit and Delete behind it, as in Mail. One row open at a time.
-const SWIPE_ACTIONS_WIDTH = 160;
+// Swiping a reflection left reveals Share, Edit and Delete behind it, as in Mail. One row open at a time.
+const SWIPE_ACTIONS_WIDTH = 240;
 let openRow = null;
 
 function closeOpenRow() {
