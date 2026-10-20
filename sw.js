@@ -5,8 +5,7 @@
 // Only runs over HTTPS (service workers need a secure origin).
 
 // Prefixed so the English app's caches on the same origin are left alone.
-const PREFIX = 'bible-scroll-ml-';
-const CACHE = `${PREFIX}v54`;
+const CACHE = 'bible-scroll-ml-v55';
 const ASSETS = [
   './', 'index.html', 'style.css', 'app.js', 'journal.js', 'books.js', 'mal1910.json',
   'manifest.webmanifest', 'icons/cross-180.png', 'icons/cross-192.png', 'icons/cross-512.png',
@@ -21,7 +20,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith(PREFIX) && k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => /^bible-scroll-ml-v\d+$/.test(k) && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
