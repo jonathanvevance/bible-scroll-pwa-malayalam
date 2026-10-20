@@ -524,7 +524,7 @@ async function renderTimeline() {
     const share = el('button', { className: 'swipe-share', textContent: 'Share' });
     share.addEventListener('click', () => {
       closeOpenRow();
-      shareText(`${c.body}\n\n${verseQuote(timelineVerse)}`, 'Reflection copied', alert);
+      shareText(`${verseQuote(timelineVerse)}\n\n${c.body}`, 'Reflection copied', alert);
     });
     const edit = el('button', { className: 'swipe-edit', textContent: 'Edit' });
     edit.addEventListener('click', () => startEditing(c));
