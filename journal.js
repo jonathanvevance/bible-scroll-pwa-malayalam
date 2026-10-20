@@ -78,6 +78,15 @@ export class Journal {
     return rows;
   }
 
+  /** New text for a reflection; it keeps its date and is marked as edited. */
+  async update(comment, body) {
+    const row = { ...comment, body: body.trim(), updatedAt: Date.now() };
+    const tx = this.#db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(row);
+    await committed(tx);
+    return row;
+  }
+
   async delete(comment) {
     const tx = this.#db.transaction(STORE, 'readwrite');
     tx.objectStore(STORE).delete(comment.id);

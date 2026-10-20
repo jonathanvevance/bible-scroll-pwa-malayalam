@@ -515,19 +515,116 @@ async function renderTimeline() {
   const comments = (await journal.comments(timelineVerse.key)).reverse();
   document.getElementById('timelineCount').textContent =
     comments.length === 0 ? '' : comments.length === 1 ? 'Reflection' : `Reflections (${comments.length})`;
+  openRow = null;
   document.getElementById('timelineList').replaceChildren(...comments.map((c) => {
-    const del = el('button', { className: 'delete', textContent: 'Delete' });
+    const edit = el('button', { className: 'swipe-edit', textContent: 'Edit' });
+    edit.addEventListener('click', () => startEditing(c));
+    const del = el('button', { className: 'swipe-delete', textContent: 'Delete' });
     del.addEventListener('click', async () => {
-      if (!confirm('Delete this reflection?')) return;
+      if (!confirm('Delete this reflection?')) return closeOpenRow();
       await journal.delete(c);
       updateActions();
       renderTimeline();
     });
-    return el('li', {},
-      el('div', { className: 'reflection-meta' }, el('span', { textContent: stamp(c) }), del),
-      el('p', { className: 'reflection-body', textContent: c.body }));
+    const meta = c.updatedAt ? `${stamp(c)} · Edited` : stamp(c);
+    const row = el('li', { className: 'swipe-row' },
+      el('div', { className: 'swipe-actions' }, edit, del),
+      el('div', { className: 'swipe-content' },
+        el('p', { className: 'reflection-meta', textContent: meta }),
+        el('p', { className: 'reflection-body', textContent: c.body })));
+    makeSwipeable(row);
+    return row;
   }));
 }
+
+// Swiping a reflection left reveals Edit and Delete behind it, as in Mail. One row open at a time.
+const SWIPE_ACTIONS_WIDTH = 160;
+let openRow = null;
+
+function closeOpenRow() {
+  openRow?.querySelector('.swipe-content').style.removeProperty('transform');
+  openRow = null;
+}
+
+function makeSwipeable(row) {
+  const content = row.querySelector('.swipe-content');
+  let startX, startY, base, x, mode;
+  row.addEventListener('touchstart', (e) => {
+    if (e.target.closest('.swipe-actions')) return;
+    if (openRow && openRow !== row) closeOpenRow();
+    ({ clientX: startX, clientY: startY } = e.touches[0]);
+    base = openRow === row ? -SWIPE_ACTIONS_WIDTH : 0;
+    x = base;
+    mode = null;
+  }, { passive: true });
+  row.addEventListener('touchmove', (e) => {
+    if (mode === undefined || mode === 'scroll') return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if (!mode) {
+      if (Math.hypot(dx, dy) < DRAG_PX) return;
+      mode = Math.abs(dx) > Math.abs(dy) ? 'swipe' : 'scroll';
+      if (mode === 'scroll') return;
+      row.classList.add('dragging');
+    }
+    e.preventDefault();
+    x = Math.min(0, base + dx);
+    // Past the buttons the row resists, like a rubber band.
+    if (x < -SWIPE_ACTIONS_WIDTH) x = -SWIPE_ACTIONS_WIDTH + (x + SWIPE_ACTIONS_WIDTH) / 3;
+    content.style.transform = `translateX(${x}px)`;
+  }, { passive: false });
+  const settle = () => {
+    if (mode !== 'swipe') return;
+    mode = undefined;
+    row.classList.remove('dragging');
+    if (x < -SWIPE_ACTIONS_WIDTH / 2) {
+      content.style.transform = `translateX(${-SWIPE_ACTIONS_WIDTH}px)`;
+      openRow = row;
+    } else {
+      content.style.removeProperty('transform');
+      if (openRow === row) openRow = null;
+    }
+  };
+  row.addEventListener('touchend', settle);
+  row.addEventListener('touchcancel', settle);
+  content.addEventListener('click', closeOpenRow);
+}
+
+// A touch anywhere else in the sheet closes an open row.
+timeline.addEventListener('touchstart', (e) => {
+  if (openRow && !openRow.contains(e.target)) closeOpenRow();
+}, { passive: true });
+
+/** The reflection being edited in the writing area, or null when writing a new one. */
+let editing = null;
+const composerLabel = document.getElementById('composerLabel');
+const composerHint = document.getElementById('composerHint');
+const cancelEdit = document.getElementById('cancelEdit');
+
+function setEditing(comment) {
+  editing = comment;
+  composerLabel.textContent = comment ? 'Edit reflection' : 'New reflection';
+  composerHint.hidden = !!comment;
+  cancelEdit.hidden = !comment;
+  composerText.value = comment?.body ?? '';
+  sizeComposer();
+}
+
+function startEditing(comment) {
+  closeOpenRow();
+  // A new reflection still in the box is saved rather than replaced. Not awaited, so the
+  // keyboard can still open from this tap.
+  if (!editing && composerText.value.trim()) {
+    journal.add(composerText.value, timelineVerse.key).then(() => { updateActions(); renderTimeline(); });
+  }
+  setEditing(comment);
+  composerText.focus();
+}
+
+cancelEdit.addEventListener('click', () => {
+  setEditing(null);
+  composerText.blur();
+});
 
 function sizeComposer() {
   composerText.style.height = 'auto';
@@ -535,13 +632,18 @@ function sizeComposer() {
 }
 composerText.addEventListener('input', sizeComposer);
 
-/** Saves whatever is in the writing area as a new reflection. */
+/**
+ * Saves whatever is in the writing area: as a new reflection, or as the new text of the one
+ * being edited. Emptying an edit keeps the original; deleting is a separate choice.
+ */
 async function saveDraft() {
-  if (!timelineVerse || !composerText.value.trim()) return;
+  const body = composerText.value.trim();
+  const edited = editing;
+  if (!timelineVerse || (!body && !edited)) return;
   try {
-    await journal.add(composerText.value, timelineVerse.key);
-    composerText.value = '';
-    sizeComposer();
+    if (!edited) await journal.add(body, timelineVerse.key);
+    else if (body && body !== edited.body) await journal.update(edited, body);
+    setEditing(null);
     updateActions();
     await renderTimeline();
     scrollTimelineToEnd();
@@ -559,8 +661,7 @@ verseActions.reflect = (v) => {
   document.getElementById('timelineVerse').textContent = timelineVerse.text;
   document.getElementById('timelineCount').textContent = '';
   document.getElementById('timelineList').replaceChildren();
-  composerText.value = '';
-  sizeComposer();
+  setEditing(null);
   timeline.showModal();
   renderTimeline().then(scrollTimelineToEnd);
 };
