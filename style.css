@@ -117,6 +117,16 @@ button {
 .long .verse-text { font-size: 21px; }
 .very-long .verse-text { font-size: 18px; }
 
+/* A psalm's title above verse 1, and Habakkuk's closing note below 3:19: small, grey, italic. */
+.verse-title, .verse-note {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--fg-2);
+}
+
 .reference {
   margin: 0;
   font-size: 16px;

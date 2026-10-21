@@ -37,8 +37,11 @@ const hubURL = (tool, v) => `https://biblehub.com/${tool(bookInfo(v.book).slug, 
 // ---------- Bible text ----------
 
 class Bible {
-  constructor(books) {
+  /** `titles`: psalm superscriptions by "book:chapter"; `notes`: closing notes by "book:chapter:verse". */
+  constructor({ books, titles = {}, notes = {} }) {
     this.books = books;
+    this.titles = titles;
+    this.notes = notes;
     this.chapters = [];
     this.index = new Map();
     books.forEach((chapters, b) => chapters.forEach((_, c) => {
@@ -55,6 +58,8 @@ class Bible {
   verses(ch) {
     return this.books[ch.book - 1][ch.chapter - 1].map((text, i) => ({
       book: ch.book, chapter: ch.chapter, verse: i + 1, key: ch.key + i + 1, text,
+      title: i === 0 ? this.titles[`${ch.book}:${ch.chapter}`] : undefined,
+      note: this.notes[`${ch.book}:${ch.chapter}:${i + 1}`],
     }));
   }
 
@@ -154,10 +159,15 @@ function page(item) {
   node.dataset.id = item.id;
   if (item.type === 'verse') {
     const v = item.verse;
-    if (v.text.length > 220) node.classList.add('long');
-    if (v.text.length > 380) node.classList.add('very-long');
+    // Titles are set smaller than the verse, so they count for half.
+    const length = v.text.length + (v.title ?? '').length / 2;
+    if (length > 220) node.classList.add('long');
+    if (length > 380) node.classList.add('very-long');
+    // A psalm's title and Habakkuk's closing note sit outside the verse, as in printed Bibles.
     node.append(el('div', { className: 'verse-body' },
+      v.title ? el('p', { className: 'verse-title', textContent: v.title }) : null,
       el('p', { className: 'verse-text', textContent: v.text }),
+      v.note ? el('p', { className: 'verse-note', textContent: v.note }) : null,
       el('p', { className: 'reference', textContent: verseName(v) })));
     const actions = actionsTemplate.content.firstElementChild.cloneNode(true);
     actions.querySelector('.action-count').textContent = journal.count(v.key) || '';
@@ -1407,7 +1417,7 @@ async function start() {
     fetch('mal1910.json').then((r) => r.json()),
     Journal.open(),
   ]);
-  bible = new Bible(data.books);
+  bible = new Bible(data);
   journal = opened;
   const begin = startFor(Number(localStorage.getItem(LAST_VERSE)));
   show(begin.window, begin.id);

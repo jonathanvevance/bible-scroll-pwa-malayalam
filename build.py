@@ -2,7 +2,8 @@
 
 - books.js       from BibleCore's BookCatalog.swift (66 rows, same names and slugs)
 - mal1910.json   Malayalam Sathyavedapusthakam 1910 (contemporary orthography), converted
-                 from eBible.org's USFM. CC BY-SA 4.0, The Free Bible Foundation.
+                 from eBible.org's USFM. CC BY-SA 4.0, The Free Bible Foundation. Psalm titles
+                 and Habakkuk's closing note are kept apart from the verse text.
 - icons/*.png    drawn here, so no image tooling is needed
 
 Usage: python3 build.py [path/to/bible-scroll]   (default: ../bible-scroll)
@@ -22,6 +23,10 @@ PWA = Path(__file__).resolve().parent
 IOS = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else PWA.parent / "bible-scroll"
 CATALOG = IOS / "BibleCore/Sources/BibleCore/BookCatalog.swift"
 MAL_USFM = "https://ebible.org/Scriptures/mal2015_usfm.zip"
+PSALMS, HABAKKUK = 19, 35
+PSALM_TITLES = 117
+# This edition has no \mr marker; the note is the last poetry line of Habakkuk 3:19.
+HABAKKUK_NOTE = "സംഗീതപ്രമാണിക്കു തന്ത്രിനാദത്തോടെ."
 
 ROW = re.compile(
     r'row\((\d+), "(\w+)", "(\w+)", "([^"]+)",(?: bsb: "([^"]+)",)? slug: "(\w+)", chapters: (\d+)\)'
@@ -46,8 +51,12 @@ def build_books() -> None:
 # Notes (\f, \x) and figures are dropped whole; other character markers keep their text.
 NOTE = re.compile(r"\\(f|x|fig) .*?\\\1\*", re.S)
 CHAR = re.compile(r"\\\+?[a-z]+\d*(\*| ?)")
-# Lines that are not verse text: titles, headings, Psalm superscriptions, acrostic letters.
-SKIP = re.compile(r"\\(id|h|toc\d|mt\d|ms\d|s\d|r|d|qa)\b")
+# Lines that are not verse text: titles, headings, acrostic letters.
+SKIP = re.compile(r"\\(id|h|toc\d|mt\d|ms\d|s\d|r|qa)\b")
+
+
+def plain(marked: str) -> str:
+    return re.sub(r"\s+", " ", CHAR.sub("", marked)).strip()
 
 
 def build_malayalam() -> None:
@@ -61,12 +70,16 @@ def build_malayalam() -> None:
                 usfm[re.match(r"\\id (\w+)", text).group(1)] = text
 
     order = [b["usfm"] for b in json.loads((PWA / "books.js").read_text().split("= ", 1)[1].rstrip(";\n"))]
-    books = []
+    books, titles = [], {}
     for code in order:
         chapters, verse = [], None
         for line in NOTE.sub("", usfm[code]).splitlines():
             line = line.strip()
             if not line or SKIP.match(line):
+                continue
+            if m := re.match(r"\\d (.*)", line):
+                assert code == "PSA" and verse is None, f"unexpected title in {code} {len(chapters)}"
+                titles[f"{PSALMS}:{len(chapters)}"] = plain(m.group(1))
                 continue
             if m := re.match(r"\\c (\d+)", line):
                 chapters.append([])
@@ -80,12 +93,18 @@ def build_malayalam() -> None:
                 verses.extend([""] * (verse - len(verses)))
             if verse is None:
                 continue
-            text = re.sub(r"\s+", " ", CHAR.sub("", line)).strip()
+            text = plain(line)
             if text:
                 chapters[-1][verse - 1] = f"{chapters[-1][verse - 1]} {text}".strip()
         books.append(chapters)
+    assert len(titles) == PSALM_TITLES, f"found {len(titles)} psalm titles"
 
-    data = {"translation": "Sathyavedapusthakam 1910", "books": books}
+    verses = books[HABAKKUK - 1][2]
+    assert verses[18].endswith(f" {HABAKKUK_NOTE}"), "Habakkuk 3:19 note not found"
+    verses[18] = verses[18][: -len(HABAKKUK_NOTE)].rstrip()
+    notes = {f"{HABAKKUK}:3:19": HABAKKUK_NOTE}
+
+    data = {"translation": "Sathyavedapusthakam 1910", "books": books, "titles": titles, "notes": notes}
     (PWA / "mal1910.json").write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
 
 
