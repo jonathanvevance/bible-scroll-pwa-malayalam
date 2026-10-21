@@ -470,6 +470,40 @@ function closeHistory() { historyMenu.hidden = true; }
 
 historyButton.addEventListener('click', () => { if (historyMenu.hidden) openHistory(); else closeHistory(); });
 historyMenu.addEventListener('click', (e) => { if (e.target === historyMenu) closeHistory(); });
+
+// As in iOS menus, a touch that slides away from where it began picks nothing: the row stops
+// highlighting, the haptic switches (which would toggle on release) are disabled, and the click
+// that follows the lift is swallowed.
+let menuTouch = null;
+function setMenuSwitches(on) {
+  for (const input of historyMenu.querySelectorAll('.haptic')) input.disabled = !on;
+}
+historyMenu.addEventListener('touchstart', (e) => {
+  menuTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY, moved: false };
+}, { passive: true });
+historyMenu.addEventListener('touchmove', (e) => {
+  const t = e.touches[0];
+  if (menuTouch && !menuTouch.moved && Math.hypot(t.clientX - menuTouch.x, t.clientY - menuTouch.y) > DRAG_PX) {
+    menuTouch.moved = true;
+    historyMenu.classList.add('dragged');
+    setMenuSwitches(false);
+  }
+}, { passive: true });
+for (const type of ['touchend', 'touchcancel']) {
+  historyMenu.addEventListener(type, () => {
+    if (!menuTouch?.moved) return;
+    setTimeout(() => {
+      menuTouch = null;
+      historyMenu.classList.remove('dragged');
+      setMenuSwitches(true);
+    }, 400);
+  }, { passive: true });
+}
+historyMenu.addEventListener('click', (e) => {
+  if (!menuTouch?.moved) return;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
 document.getElementById('clearHistory').addEventListener('click', () => {
   localStorage.removeItem(HISTORY);
   updateHistory();
