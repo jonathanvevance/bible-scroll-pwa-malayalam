@@ -229,10 +229,7 @@ button {
   appearance: auto;
   opacity: 0;
 }
-.chapter-pill, .links > li > button.chevron, .chapter-grid button { position: relative; }
-
-.links > li > button.pressed, .chapter-grid button.pressed { background: var(--press); }
-.chapter-grid button.current.pressed { background: var(--accent); filter: brightness(0.85); }
+.chapter-pill, .links > li > button.chevron, .links > li > button.go-to, .chapter-grid button { position: relative; }
 
 /* Press feedback, like native buttons. */
 .action svg, .chapter-pill, .glass-button {
@@ -286,6 +283,53 @@ button {
   stroke-linejoin: round;
 }
 .chapter-pill svg { width: 16px; height: 16px; color: var(--fg-2); }
+.history-pill { gap: 6px; padding: 0 14px 0 11px; }
+.history-pill[hidden] { display: none; }
+
+/* The History pill's menu of recent places, the rest of the screen blurred. */
+.topbar { z-index: 2; }
+.history-menu {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.06);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation: fade-in 0.2s;
+}
+.history-menu[hidden] { display: none; }
+.history-card {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 52px);
+  left: 12px;
+  width: min(290px, calc(100vw - 24px));
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--bar);
+  -webkit-backdrop-filter: blur(30px);
+  backdrop-filter: blur(30px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18), inset 0 0 0 0.5px var(--glass-edge);
+  transform-origin: top left;
+  animation: menu-in 0.28s var(--ease-ios);
+}
+@keyframes menu-in { from { opacity: 0; transform: scale(0.6); } }
+.history-title { margin: 0; padding: 10px 16px 6px; font-size: 13px; color: var(--fg-2); }
+.history-list { margin: 0; padding: 0; list-style: none; }
+.history-list button, .history-clear {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 16px;
+  border-top: 0.5px solid var(--sep);
+  font-size: 17px;
+  text-align: left;
+  color: var(--fg);
+}
+.history-list time { margin-left: auto; font-size: 13px; font-weight: 400; color: var(--fg-2); }
+.history-clear { border-top: 8px solid var(--sep); color: var(--destructive); }
+.history-list button:active, .history-clear:active { background: var(--press); }
 
 /* ---------- Right-hand action column ---------- */
 
@@ -678,6 +722,13 @@ html:has(dialog[open]) .tab-bar {
   font-variant-numeric: tabular-nums;
 }
 .links .destructive { color: var(--destructive); }
+.links .go-to { color: var(--accent); font-weight: 600; }
+/* The book being read sits above the list, so the list can start at the top. */
+.reading .card-list { margin-bottom: 24px; }
+/* A blue dot marks the book being read, in place of a section label. */
+.reading-dot { flex: none; align-self: center; width: 8px; height: 8px; margin-right: 12px; border-radius: 50%; background: var(--accent); }
+/* In the Books sheet the search and every row are the same 44pt tall. */
+#bookView .links > li > button { align-items: center; height: 44px; padding-block: 0; }
 /* Menu rows: icon, label, chevron, sitting directly on the sheet. */
 .menu-list { list-style: none; margin: 0; padding: 0; }
 .menu-list li + li::before {
@@ -872,6 +923,18 @@ html:has(dialog[open]) .tab-bar {
   outline: none;
   -webkit-appearance: none;
 }
+/* The book search stays at the top while the list scrolls; the sheet colour behind it, and
+   in the gaps above and below, hides the rows passing underneath. */
+#bookSearch {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 44px;
+  margin-bottom: 16px;
+  font-size: 17px;
+  background: linear-gradient(rgba(118, 118, 128, 0.12), rgba(118, 118, 128, 0.12)), var(--bg-2);
+  box-shadow: 0 -8px 0 var(--bg-2), 0 16px 0 var(--bg-2);
+}
 
 .segmented {
   display: grid;
@@ -891,6 +954,14 @@ html:has(dialog[open]) .tab-bar {
   color: var(--fg);
 }
 .segmented button.selected { background: var(--card); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+/* Old / New as the book list's own header, so it plainly filters the list and nothing above:
+   a control sitting just over the list, as in Health or Screen Time, as tall as the top pills. */
+.testament-switch { height: 38px; margin-bottom: 10px; border-radius: 10px; }
+.testament-switch button { padding: 0; border-radius: 8px; font-size: 15px; }
+.testament-switch button.selected { font-weight: 600; }
+@media (prefers-color-scheme: dark) {
+  .testament-switch button.selected { background: #424246; }
+}
 
 .attribution { margin: 0 16px; font-size: 12px; color: var(--fg-2); }
 

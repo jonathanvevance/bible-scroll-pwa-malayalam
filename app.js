@@ -315,7 +315,10 @@ function settle() {
 
   const previousID = state.settledID;
   state.settledID = item.id;
-  if (item.type === 'verse') localStorage.setItem(LAST_VERSE, String(item.verse.key));
+  if (item.type === 'verse') {
+    localStorage.setItem(LAST_VERSE, String(item.verse.key));
+    updateHistory();
+  }
 
   const next = windowAfterSettling(item);
   if (next) show(next, item.id);
@@ -393,9 +396,77 @@ function goToVerse(key) {
   show(window, id);
   state.settledID = id;
   localStorage.setItem(LAST_VERSE, id.slice(1));
+  updateHistory();
 }
 
-const jumpTo = (chapter) => fadeToVerse(chapter.key + 1);
+const jumpTo = (key) => { rememberPlace(); fadeToVerse(key); };
+
+// ---------- History ----------
+// Every jump (the chapter picker, a reference, a reflection card, a history entry) records the
+// place being left: newest first, one entry per chapter, five at most. The History pill lists
+// them, and shows whenever there is somewhere other than this chapter to go back to.
+
+const HISTORY = 'ml.history';
+const HISTORY_SIZE = 5;
+const historyButton = document.getElementById('historyButton');
+const historyMenu = document.getElementById('historyMenu');
+const historyList = document.getElementById('historyList');
+const chapterOf = (key) => Math.floor(key / 1_000) * 1_000;
+
+/** [{ key, time }], newest first. */
+function readHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY)) ?? []; } catch { return []; }
+}
+
+/** Every entry outside the chapter being read. */
+function historyPlaces() {
+  const here = chapterOf(Number(localStorage.getItem(LAST_VERSE)));
+  return readHistory().filter((h) => unpackKey(h.key) && chapterOf(h.key) !== here).slice(0, HISTORY_SIZE);
+}
+
+function updateHistory() { historyButton.hidden = !historyPlaces().length; }
+
+/** Call before jumping, while LAST_VERSE still holds the verse being read. */
+function rememberPlace() {
+  const key = Number(localStorage.getItem(LAST_VERSE));
+  if (!unpackKey(key)) return;
+  const rest = readHistory().filter((h) => chapterOf(h.key) !== chapterOf(key));
+  localStorage.setItem(HISTORY, JSON.stringify([{ key, time: Date.now() }, ...rest].slice(0, HISTORY_SIZE)));
+}
+
+/** "Now", "5 min", "2 h", "Yesterday", "Mon", or "3 Oct". */
+function ago(time) {
+  const minutes = Math.floor((Date.now() - time) / 60_000);
+  const days = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(time).setHours(0, 0, 0, 0)) / 86_400_000);
+  if (minutes < 1) return 'Now';
+  if (minutes < 60) return `${minutes} min`;
+  if (days === 0) return `${Math.floor(minutes / 60)} h`;
+  if (days === 1) return 'Yesterday';
+  const style = days < 7 ? { weekday: 'short' } : { day: 'numeric', month: 'short' };
+  return new Intl.DateTimeFormat(undefined, style).format(time);
+}
+
+function openHistory() {
+  historyList.replaceChildren(...historyPlaces().map((h) => {
+    const button = el('button', {}, verseName(unpackKey(h.key)), el('time', {}, ago(h.time)));
+    button.setAttribute('role', 'menuitem');
+    button.addEventListener('click', () => { closeHistory(); jumpTo(h.key); });
+    return el('li', {}, withHaptic(button));
+  }));
+  historyMenu.hidden = false;
+}
+
+function closeHistory() { historyMenu.hidden = true; }
+
+historyButton.addEventListener('click', () => { if (historyMenu.hidden) openHistory(); else closeHistory(); });
+historyMenu.addEventListener('click', (e) => { if (e.target === historyMenu) closeHistory(); });
+document.getElementById('clearHistory').addEventListener('click', () => {
+  localStorage.removeItem(HISTORY);
+  updateHistory();
+  closeHistory();
+});
+addEventListener('keydown', (e) => { if (e.key === 'Escape') closeHistory(); });
+updateHistory();
 
 // ---------- Verse actions ----------
 
@@ -754,19 +825,40 @@ let testament = 'old';
 
 const squash = (s) => s.toLowerCase().replaceAll(' ', '');
 
+/** "John 1:10", "1 cor 13 4", "ps23" -> that verse (or the chapter's first), or null. */
+function parseReference(text) {
+  const m = text.trim().toLowerCase().match(/^(\d?\s*[a-z][a-z .]*?)\s*(\d+)(?:\s*[:.\s]\s*(\d+))?$/);
+  if (!m) return null;
+  const name = squash(m[1]).replaceAll('.', '');
+  const names = (b) => [b.name, b.bsbName, b.usfm].map(squash);
+  const book = BOOKS.find((b) => names(b).includes(name)) ?? BOOKS.find((b) => names(b).some((n) => n.startsWith(name)));
+  const chapter = book && bible.chapter(book.order, Number(m[2]));
+  if (!chapter) return null;
+  const verses = bible.verses(chapter).filter((v) => v.text);
+  return m[3] ? verses.find((v) => v.verse === Number(m[3])) ?? null : verses[0];
+}
+
+async function goToReference(verse) {
+  await closeSheet(jump);
+  jumpTo(verse.key);
+}
+
 function renderBooks() {
   const query = squash(bookSearch.value);
   testaments.hidden = query !== '';
+  readingSection.hidden = query !== '';
   for (const b of testaments.children) b.classList.toggle('selected', b.dataset.testament === testament);
   const books = query
     ? BOOKS.filter((b) => [b.name, b.bsbName, b.usfm].some((n) => squash(n).includes(query)))
     : BOOKS.filter((b) => (b.order <= 39) === (testament === 'old'));
-  document.getElementById('bookList').replaceChildren(...books.map((b) => {
+  const verse = query ? parseReference(bookSearch.value) : null;
+  const goTo = verse && withHaptic(el('button', { className: 'go-to', textContent: `Go to ${verseName(verse)}` }));
+  goTo?.addEventListener('click', () => goToReference(verse));
+  document.getElementById('bookList').replaceChildren(...(goTo ? [el('li', {}, goTo)] : []), ...books.map((b) => {
     const button = withHaptic(el('button', { className: 'chevron', ariaLabel: `${b.name}, ${b.chapters} chapters` },
       el('span', { className: 'book-name', textContent: b.name }),
       el('span', { className: 'chapter-count', textContent: String(b.chapters) })));
-    // A beat for the pressed highlight to show before the chapters slide in.
-    button.addEventListener('click', () => setTimeout(() => { showChapters(b.order); slideIn(chapterView, 40); }, 120));
+    button.addEventListener('click', () => { showChapters(b.order); slideIn(chapterView, 40); });
     return el('li', {}, button);
   }));
 }
@@ -794,7 +886,7 @@ function showChapters(order) {
     if (here.book === order && here.chapter === i + 1) button.classList.add('current');
     button.addEventListener('click', async () => {
       await closeSheet(jump);
-      jumpTo(bible.chapter(order, i + 1));
+      jumpTo(bible.chapter(order, i + 1).key + 1);
     });
     return button;
   }));
@@ -806,62 +898,81 @@ testaments.addEventListener('click', (e) => {
   if (t) { testament = t; renderBooks(); }
 });
 bookSearch.addEventListener('input', renderBooks);
+bookSearch.addEventListener('keydown', (e) => {
+  const verse = e.key === 'Enter' && parseReference(bookSearch.value);
+  if (verse) goToReference(verse);
+});
 jumpBack.addEventListener('click', showBooks);
 
+// Opens on the books, since swiping already moves between nearby chapters. The book being read
+// sits at the top, one tap from its chapters.
+const readingSection = document.getElementById('reading');
 document.getElementById('jumpButton').addEventListener('click', () => {
   bookSearch.value = '';
   const here = currentItem()?.verse ?? state.window[0];
-  showChapters(here.book);
+  testament = here.book <= 39 ? 'old' : 'new';
+  document.getElementById('readingBook').textContent = bookInfo(here.book).name;
+  document.getElementById('readingChapter').textContent = `Reading · Ch ${here.chapter}`;
+  showBooks();
   jump.showModal();
+  bookView.scrollTop = 0;
+});
+document.getElementById('readingButton').addEventListener('click', () => {
+  showChapters((currentItem()?.verse ?? state.window[0]).book);
+  slideIn(chapterView, 40);
 });
 
-// Pressing in the Jump sheet: the row or cell under the finger is highlighted and the highlight
-// follows a drag. Only a tap opens; once the finger moves, the gesture is a drag and the haptic
-// switches are disabled for it, since a native switch would otherwise toggle (and open) on release.
-const PRESSABLE = '#bookList button, #chapterGrid button';
+// In the Jump sheet only a real tap opens a book or chapter: the finger stays put, the list does
+// not scroll during the touch, and the touch did not begin by stopping a gliding list. Any other
+// click, like the one iOS can send when a scroll ends on a row, is swallowed. The haptic switches
+// are disabled for anything but a tap, since a native switch would otherwise toggle on release.
+const PRESSABLE = '#readingButton, #bookList button, #chapterGrid button';
 const DRAG_PX = 10;
-let press = null;
-let pressed = null;
-
-function setPressed(node) {
-  if (node === pressed) return;
-  pressed?.classList.remove('pressed');
-  pressed = node;
-  pressed?.classList.add('pressed');
+let touch = null;
+let tapUntil = 0; // a real tap's click arrives just after its touchend, before this time
+let lastJumpScroll = 0;
+let switchesTimer = 0;
+for (const scroller of [bookView, chapterView]) {
+  scroller.addEventListener('scroll', () => {
+    lastJumpScroll = performance.now();
+    if (touch) touch.scrolled = true;
+  }, { passive: true });
 }
+
 function setSwitchesEnabled(on) {
   for (const input of jump.querySelectorAll('.haptic')) input.disabled = !on;
+}
+function disableSwitchesForAMoment() {
+  setSwitchesEnabled(false);
+  clearTimeout(switchesTimer);
+  switchesTimer = setTimeout(() => setSwitchesEnabled(true), 600);
 }
 
 jump.addEventListener('touchstart', (e) => {
   const t = e.touches[0];
-  press = { x: t.clientX, y: t.clientY, moved: false };
-  setPressed(e.target.closest(PRESSABLE));
+  touch = { x: t.clientX, y: t.clientY, moved: false, scrolled: performance.now() - lastJumpScroll < 150 };
+  tapUntil = 0;
+  if (touch.scrolled) disableSwitchesForAMoment();
 }, { passive: true });
 jump.addEventListener('touchmove', (e) => {
-  if (!press) return;
+  if (!touch || touch.moved) return;
   const t = e.touches[0];
-  if (!press.moved && Math.hypot(t.clientX - press.x, t.clientY - press.y) > DRAG_PX) {
-    press.moved = true;
-    setSwitchesEnabled(false);
+  if (Math.hypot(t.clientX - touch.x, t.clientY - touch.y) > DRAG_PX) {
+    touch.moved = true;
+    disableSwitchesForAMoment();
   }
-  if (press.moved) setPressed(document.elementFromPoint(t.clientX, t.clientY)?.closest(PRESSABLE) ?? null);
 }, { passive: true });
 for (const type of ['touchend', 'touchcancel']) {
   jump.addEventListener(type, () => {
-    const drag = press?.moved;
-    // A tap keeps its highlight a moment so it registers; a drag clears at once.
-    setTimeout(() => setPressed(null), drag ? 0 : 160);
-    if (drag) {
-      // Kept until the release's click (if any) has been swallowed below.
-      setTimeout(() => { setSwitchesEnabled(true); press = null; }, 400);
-    } else {
-      press = null;
-    }
+    const tap = type === 'touchend' && touch && !touch.moved && !touch.scrolled;
+    tapUntil = tap ? performance.now() + 600 : 0;
+    if (!tap) disableSwitchesForAMoment();
   }, { passive: true });
 }
 jump.addEventListener('click', (e) => {
-  if (press?.moved && e.target.closest(PRESSABLE)) {
+  if (!e.target.closest(PRESSABLE)) return;
+  // `touch` is null only for mouse or keyboard clicks, which always count.
+  if (touch && performance.now() > tapUntil) {
     e.preventDefault();
     e.stopPropagation();
   }
@@ -1047,6 +1158,7 @@ for (const control of scrollingControls) {
 reflectionsList.addEventListener('click', (e) => {
   const key = Number(e.target.closest('.reflection-card')?.dataset.key);
   if (!key) return;
+  rememberPlace();
   const go = () => { showTab('bible'); goToVerse(key); };
   if (reduceMotion.matches || !document.startViewTransition) go();
   else document.startViewTransition(go);

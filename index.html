@@ -26,7 +26,23 @@
   </div>
   <p id="railLabel" class="rail-label" hidden></p>
 
+  <div id="historyMenu" class="history-menu" hidden>
+    <div class="history-card" role="menu" aria-label="Go back to">
+      <p class="history-title">Go back to</p>
+      <ul id="historyList" class="history-list"></ul>
+      <button id="clearHistory" class="history-clear">
+        Clear History
+        <input type="checkbox" switch class="haptic" tabindex="-1" aria-hidden="true">
+      </button>
+    </div>
+  </div>
+
   <header class="topbar">
+    <button id="historyButton" class="pill chapter-pill history-pill" hidden>
+      <svg viewBox="0 0 24 24"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 9"/><path d="M4.5 4.5V9H9"/><path d="M12 8v4l2.5 2"/></svg>
+      History
+      <input type="checkbox" switch class="haptic" tabindex="-1" aria-hidden="true">
+    </button>
     <span class="spacer"></span>
     <button id="jumpButton" class="pill chapter-pill" aria-label="Jump to a chapter">
       <span id="chapterLabel"></span>
@@ -200,6 +216,10 @@
             <div><p class="help-title">Share or study a verse</p><p class="help-text">The arrow shares it; ••• opens translations and commentaries.</p></div>
           </li>
           <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-8-8"/><path d="M12 8v4l3 2"/></svg>
+            <div><p class="help-title">Go back</p><p class="help-text">Tap History at the top left for the last places you jumped from.</p></div>
+          </li>
+          <li>
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8.5 3v18M11.5 8h4.5M11.5 11.5h4.5M11.5 15h3"/></svg>
             <div><p class="help-title">Look back</p><p class="help-text">Pick Today, Week, Month or All; tap a reflection to open its verse.</p></div>
           </li>
@@ -232,8 +252,20 @@
         <button class="text-button" data-close>Done</button>
       </header>
       <div id="bookView" class="sheet-body">
-        <input id="bookSearch" class="search" type="search" placeholder="Book name" autocomplete="off" autocorrect="off" spellcheck="false">
-        <div id="testaments" class="segmented">
+        <input id="bookSearch" class="search" type="search" placeholder="Book, or a verse like John 3:16" autocomplete="off" autocorrect="off" spellcheck="false">
+        <div id="reading" class="reading">
+          <ul class="card-list links">
+            <li>
+              <button id="readingButton" class="chevron">
+                <span class="reading-dot" aria-hidden="true"></span>
+                <span id="readingBook" class="book-name"></span>
+                <span id="readingChapter" class="chapter-count"></span>
+                <input type="checkbox" switch class="haptic" tabindex="-1" aria-hidden="true">
+              </button>
+            </li>
+          </ul>
+        </div>
+        <div id="testaments" class="segmented testament-switch">
           <button data-testament="old">Old Testament</button>
           <button data-testament="new">New Testament</button>
         </div>
