@@ -341,6 +341,7 @@ button {
 .history-clear { border-top: 8px solid var(--sep); color: var(--destructive); }
 .history-list button:active, .history-clear:active { background: var(--press); }
 .history-menu.dragged button:active { background: none; }
+.history-menu { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 
 /* ---------- Right-hand action column ---------- */
 

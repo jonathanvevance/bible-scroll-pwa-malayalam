@@ -463,6 +463,7 @@ function openHistory() {
     button.addEventListener('click', () => { closeHistory(); jumpTo(h.key); });
     return el('li', {}, withHaptic(button));
   }));
+  resetMenuTouch();
   historyMenu.hidden = false;
 }
 
@@ -478,27 +479,33 @@ let menuTouch = null;
 function setMenuSwitches(on) {
   for (const input of historyMenu.querySelectorAll('.haptic')) input.disabled = !on;
 }
+function resetMenuTouch() {
+  menuTouch = null;
+  historyMenu.classList.remove('dragged');
+  setMenuSwitches(true);
+}
 historyMenu.addEventListener('touchstart', (e) => {
+  if (menuTouch?.moved) resetMenuTouch();
   menuTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY, moved: false };
 }, { passive: true });
+function cancelMenuTouch() {
+  if (!menuTouch || menuTouch.moved) return;
+  menuTouch.moved = true;
+  historyMenu.classList.add('dragged');
+  setMenuSwitches(false);
+}
 historyMenu.addEventListener('touchmove', (e) => {
   const t = e.touches[0];
-  if (menuTouch && !menuTouch.moved && Math.hypot(t.clientX - menuTouch.x, t.clientY - menuTouch.y) > DRAG_PX) {
-    menuTouch.moved = true;
-    historyMenu.classList.add('dragged');
-    setMenuSwitches(false);
-  }
+  if (menuTouch && Math.hypot(t.clientX - menuTouch.x, t.clientY - menuTouch.y) > DRAG_PX) cancelMenuTouch();
 }, { passive: true });
-for (const type of ['touchend', 'touchcancel']) {
-  historyMenu.addEventListener(type, () => {
-    if (!menuTouch?.moved) return;
-    setTimeout(() => {
-      menuTouch = null;
-      historyMenu.classList.remove('dragged');
-      setMenuSwitches(true);
-    }, 400);
-  }, { passive: true });
-}
+historyMenu.addEventListener('touchend', () => {
+  const ended = menuTouch;
+  if (ended?.moved) setTimeout(() => { if (menuTouch === ended) resetMenuTouch(); }, 400);
+}, { passive: true });
+// iOS cancels the touch when it takes the gesture over (a long press, say). The finger may stay
+// down long after, unseen by the page, and the switch still toggles on its release, so everything
+// stays off until the next touch begins.
+historyMenu.addEventListener('touchcancel', cancelMenuTouch, { passive: true });
 historyMenu.addEventListener('click', (e) => {
   if (!menuTouch?.moved) return;
   e.preventDefault();
