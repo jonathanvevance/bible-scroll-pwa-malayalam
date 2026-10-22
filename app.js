@@ -901,9 +901,9 @@ let testament = 'old';
 
 const squash = (s) => s.toLowerCase().replaceAll(' ', '');
 
-/** "John 1:10", "1 cor 13 4", "ps23" -> that verse (or the chapter's first), or null. */
+/** "John 1:10", "1 cor 13 4", "ps23", "gen 1:" -> that verse (or the chapter's first), or null. */
 function parseReference(text) {
-  const m = text.trim().toLowerCase().match(/^(\d?\s*[a-z][a-z .]*?)\s*(\d+)(?:\s*[:.\s]\s*(\d+))?$/);
+  const m = text.trim().toLowerCase().match(/^(\d?\s*[a-z][a-z .]*?)\s*(\d+)(?:\s*[:.\s]\s*(\d*))?$/);
   if (!m) return null;
   const name = squash(m[1]).replaceAll('.', '');
   const names = (b) => [b.name, b.bsbName, b.usfm].map(squash);
