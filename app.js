@@ -204,12 +204,14 @@ function updateControls() {
   updateRail();
 }
 
-/** Refreshes the reflection counts on the rendered pages after reflections change. */
+/** Refreshes the counts and hearts on the rendered pages after reflections or likes change. */
 function updateActions() {
   for (const node of feed.querySelectorAll('.page.verse')) {
-    const text = String(journal.count(Number(node.dataset.id.slice(1))) || '');
+    const key = Number(node.dataset.id.slice(1));
+    const text = String(journal.count(key) || '');
     const count = node.querySelector('.action-count');
     if (count.textContent !== text) count.textContent = text;
+    showLiked(node.querySelector('.like'), journal.isMarked(LIKE, key));
   }
   invalidateBackup();
   updateBackupReminder();
@@ -542,7 +544,7 @@ verseActions.like = async (v, button) => {
   button.dataset.busy = '1';
   try {
     const liked = await journal.toggleMark(LIKE, v.key);
-    showLiked(button, liked);
+    updateActions();
     button.classList.remove('pop');
     if (liked) {
       void button.offsetWidth; // restarts the animation
@@ -1278,8 +1280,10 @@ for (const list of [reflectionsList, likedList]) {
 
 // ---------- Backup ----------
 // A backup is one readable JSON file the person saves to iCloud Drive through the share sheet.
-// Restoring only needs id, verseKey, body, createdAt, timeZoneID and updatedAt; the reference,
-// verse text and ISO date are there so the file still makes sense without the app.
+// Restoring only needs id, verseKey, body, createdAt, timeZoneID and updatedAt for a reflection,
+// and verseKey and createdAt for a like; the reference, verse text and ISO date are there so the
+// file still makes sense without the app. Likes were added without a new format number: older
+// versions of the app ignore them rather than refusing the file.
 
 const LAST_BACKUP = 'ml.lastBackupAt';
 const LAST_BACKUP_COUNT = 'ml.lastBackupCount';
@@ -1297,8 +1301,23 @@ let backupBuild = 0;
 let backupBuilding = -1;
 
 const reflectionTotal = () => [...journal.counts.values()].reduce((sum, n) => sum + n, 0);
+const likeTotal = () => journal.markCount(LIKE);
+const likedPlural = (n) => `${n} liked verse${n === 1 ? '' : 's'}`;
+/** "3 reflections and 2 liked verses", leaving out whichever is zero. */
+const contents = (reflections, likes) => [reflections || !likes ? plural(reflections) : null, likes ? likedPlural(likes) : null]
+  .filter(Boolean).join(' and ');
 
 async function backupFile() {
+  const likes = (await journal.marks(LIKE)).reverse().map((m) => {
+    const v = unpackKey(m.verseKey);
+    return {
+      verseKey: m.verseKey,
+      reference: v ? verseName(v) : null,
+      verseText: v ? bible.books[v.book - 1]?.[v.chapter - 1]?.[v.verse - 1] ?? null : null,
+      createdAt: m.createdAt,
+      createdAtISO: new Date(m.createdAt).toISOString(),
+    };
+  });
   const reflections = (await journal.allComments()).map((c) => {
     const v = unpackKey(c.verseKey);
     return {
@@ -1321,6 +1340,7 @@ async function backupFile() {
     translation: 'Sathyavedapusthakam 1910',
     count: reflections.length,
     reflections,
+    likes,
   };
   // One fixed name, so saving to the same folder offers to replace the last backup.
   return new File([JSON.stringify(data, null, 2)], 'Bible Scroll Malayalam backup.json', { type: 'application/json' });
@@ -1340,9 +1360,9 @@ function invalidateBackup() {
   setBackupEnabled(false);
 }
 
-/** Builds the file once per version of the reflections; the backup buttons wait for it. */
+/** Builds the file once per version of the reflections and likes; the backup buttons wait for it. */
 function prepareBackup() {
-  if (backupReady || !reflectionTotal()) return setBackupEnabled(backupReady !== null);
+  if (backupReady || !(reflectionTotal() + likeTotal())) return setBackupEnabled(backupReady !== null);
   if (backupBuilding === backupBuild) return;
   const build = backupBuilding = backupBuild;
   setBackupEnabled(false);
@@ -1367,7 +1387,7 @@ function backupTime(ms) {
 function updateBackupStatus() {
   const last = Number(localStorage.getItem(LAST_BACKUP));
   const status = last ? `Last backup: ${backupTime(last)}`
-    : reflectionTotal() ? 'Never backed up' : 'No reflections to back up yet';
+    : reflectionTotal() + likeTotal() ? 'Never backed up' : 'Nothing to back up yet';
   backupStatus.textContent = `${status}\nSave to Files, then iCloud Drive.`;
 }
 
@@ -1387,7 +1407,7 @@ function backedUp(count) {
   updateBackupStatus();
   updateBackupReminder();
   closeSheet(backup);
-  toast(`Backed up ${count} reflection${count === 1 ? '' : 's'}`);
+  toast(`Backed up ${contents(count, likeTotal())}`);
 }
 
 backupNow.addEventListener('click', shareBackup);
@@ -1426,7 +1446,7 @@ async function shareBackup() {
   backedUp(count);
 }
 
-// Reminder: a backup is due when there are reflections newer than the last backup and that
+// Reminder: a backup is due when there are reflections or likes newer than the last backup and that
 // backup is over a week old (or there has never been one). A red dot marks the Reflections tab
 // and the backup button until then; the banner can be put off for a few days.
 
@@ -1435,11 +1455,12 @@ const DAY_MS = 86_400_000;
 const backupBannerDetail = document.getElementById('backupBannerDetail');
 
 async function backupOverdue() {
-  if (!reflectionTotal()) return false;
+  if (!(reflectionTotal() + likeTotal())) return false;
   const last = Number(localStorage.getItem(LAST_BACKUP));
   if (!last) return true;
   if (Date.now() - last < 7 * DAY_MS) return false;
-  return (await journal.page(last + 1, 0, 1)).length > 0;
+  if ((await journal.page(last + 1, 0, 1)).length > 0) return true;
+  return (await journal.marks(LIKE)).some((m) => m.createdAt > last);
 }
 
 async function updateBackupReminder() {
@@ -1458,12 +1479,13 @@ document.getElementById('bannerLater').addEventListener('click', () => {
   backupBanner.hidden = true;
 });
 
-// Restore: merge only. Reflections already on the phone (same id) are left as they are.
+// Restore: merge only. Reflections already on the phone (same id) and verses already liked are
+// left as they are.
 
 const restoreFile = document.getElementById('restoreFile');
 const plural = (n) => `${n} reflection${n === 1 ? '' : 's'}`;
 
-/** The backup's reflections, checked in full first so a bad file writes nothing. */
+/** The backup's reflections and likes, checked in full first so a bad file writes nothing. */
 function readBackup(text) {
   let data;
   try { data = JSON.parse(text); } catch { data = null; }
@@ -1473,7 +1495,14 @@ function readBackup(text) {
   if (!Number.isInteger(data.format) || data.format < 1) throw new Error("This file isn't a Bible Scroll backup.");
   if (data.format > BACKUP_FORMAT) throw new Error('This backup was made by a newer version of the app. Update the app, then try again.');
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return data.reflections.map((r, i) => {
+  // Backups made before likes existed have none.
+  if (data.likes !== undefined && !Array.isArray(data.likes)) throw new Error('The likes in this backup are damaged, so nothing was restored.');
+  const likes = (data.likes ?? []).map((l, i) => {
+    const valid = Number.isInteger(l?.verseKey) && unpackKey(l.verseKey) !== null && Number.isFinite(l.createdAt);
+    if (!valid) throw new Error(`Liked verse ${i + 1} in this backup is damaged, so nothing was restored.`);
+    return { verseKey: l.verseKey, createdAt: l.createdAt };
+  });
+  const reflections = data.reflections.map((r, i) => {
     const valid = typeof r?.id === 'string' && r.id !== ''
       && Number.isInteger(r.verseKey) && unpackKey(r.verseKey) !== null
       && typeof r.body === 'string' && r.body.trim() !== ''
@@ -1488,10 +1517,14 @@ function readBackup(text) {
       updatedAt: Number.isFinite(r.updatedAt) ? r.updatedAt : null,
     };
   });
+  return { reflections, likes };
 }
 
 async function restoreFrom(file) {
-  return journal.importMany(readBackup(await file.text()));
+  const { reflections, likes } = readBackup(await file.text());
+  const { added, skipped } = await journal.importMany(reflections);
+  const likesAdded = await journal.importMarks(LIKE, likes);
+  return { added, skipped: skipped + likes.length - likesAdded, likesAdded };
 }
 
 document.getElementById('restoreNow').addEventListener('click', () => restoreFile.click());
@@ -1501,12 +1534,12 @@ restoreFile.addEventListener('change', async () => {
   restoreFile.value = ''; // picking the same file again still fires change
   if (!file) return;
   try {
-    const { added, skipped } = await restoreFrom(file);
+    const { added, skipped, likesAdded } = await restoreFrom(file);
     updateActions();
     renderReflections();
     await closeSheet(backup);
-    if (added === 0) toast('Everything in this backup is already here');
-    else toast(`Restored ${plural(added)}${skipped ? ` (${skipped} already here)` : ''}`);
+    if (added + likesAdded === 0) toast('Everything in this backup is already here');
+    else toast(`Restored ${contents(added, likesAdded)}${skipped ? '; the rest was already here' : ''}`);
   } catch (error) {
     alert(error?.message ?? String(error));
   }

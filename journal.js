@@ -184,6 +184,27 @@ export class Journal {
     return marked;
   }
 
+  markCount(kind) {
+    return this.#marked.get(kind).size;
+  }
+
+  /** Adds the marks not already here, in one transaction; existing ones keep their date. */
+  async importMarks(kind, rows) {
+    const marked = this.#marked.get(kind);
+    const fresh = new Map();
+    for (const row of rows) {
+      if (!marked.has(row.verseKey) && !fresh.has(row.verseKey)) fresh.set(row.verseKey, row);
+    }
+    if (!fresh.size) return 0;
+    const tx = this.#db.transaction(MARKS, 'readwrite');
+    for (const { verseKey, createdAt } of fresh.values()) {
+      tx.objectStore(MARKS).put({ id: `${kind}:${verseKey}`, kind, verseKey, createdAt });
+    }
+    await committed(tx);
+    for (const verseKey of fresh.keys()) marked.add(verseKey);
+    return fresh.size;
+  }
+
   /** Newest first. */
   async marks(kind) {
     const tx = this.#db.transaction(MARKS);
