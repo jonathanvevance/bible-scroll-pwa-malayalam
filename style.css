@@ -96,6 +96,8 @@ button {
 
 /* The rail's segments end 16px in, so equal visible gaps need 16px more on the left. */
 .page.verse { padding-left: 48px; padding-right: 32px; }
+/* Verses sit a little above centre so their last lines clear the action column. */
+.page.verse:not(.long) { padding-bottom: calc(var(--tab-bar-space) + 84px); }
 /* Long verses sit higher and smaller so they clear the action column. */
 .page.verse.long { padding-bottom: calc(var(--tab-bar-space) + 210px); }
 
@@ -353,13 +355,13 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
 }
 
 .action {
   position: relative;
   width: 48px;
-  min-height: 48px;
+  min-height: 44px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -367,8 +369,8 @@ button {
   color: var(--fg);
 }
 .action svg {
-  width: 29px;
-  height: 29px;
+  width: 28px;
+  height: 28px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
@@ -378,6 +380,9 @@ button {
 .action svg .dot { fill: currentColor; stroke: none; }
 .action-count { font-size: 12px; font-weight: 600; line-height: 1; margin-top: 2px; }
 .action-count:empty { display: none; }
+.like[aria-pressed="true"] svg { fill: var(--destructive); stroke: var(--destructive); }
+.like.pop svg { animation: like-pop 0.4s var(--ease-ios); }
+@keyframes like-pop { 40% { transform: scale(1.25); } }
 
 .toast {
   position: fixed;
@@ -451,9 +456,9 @@ html:has(dialog[open]) .tab-bar {
 /* ---------- Reflections tab ---------- */
 
 /* The Bible view stays laid out underneath, so the feed keeps its place. */
-.tab-reflections .feed,
-.tab-reflections .topbar,
-.tab-reflections .rail { visibility: hidden; }
+.tab-away .feed,
+.tab-away .topbar,
+.tab-away .rail { visibility: hidden; }
 
 .reflections-view {
   position: fixed;
@@ -588,7 +593,8 @@ html:has(dialog[open]) .tab-bar {
 }
 .reflection-time { flex: none; font-size: 13px; font-weight: 400; color: var(--fg-2); }
 .reflection-verse,
-.reflection-text {
+.reflection-text,
+.liked-verse {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -607,6 +613,13 @@ html:has(dialog[open]) .tab-bar {
   font-size: 17px;
   line-height: 1.45;
   white-space: pre-wrap;
+  -webkit-line-clamp: 6;
+}
+.liked-verse {
+  margin-top: 6px;
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.45;
   -webkit-line-clamp: 6;
 }
 

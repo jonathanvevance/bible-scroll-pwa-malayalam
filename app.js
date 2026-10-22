@@ -171,6 +171,7 @@ function page(item) {
       el('p', { className: 'reference', textContent: verseName(v) })));
     const actions = actionsTemplate.content.firstElementChild.cloneNode(true);
     actions.querySelector('.action-count').textContent = journal.count(v.key) || '';
+    showLiked(actions.querySelector('.like'), journal.isMarked(LIKE, v.key));
     node.append(actions);
   } else {
     node.append(el('div', { className: 'boundary-body' },
@@ -527,8 +528,30 @@ feed.addEventListener('click', (e) => {
   const action = e.target.closest('[data-action]')?.dataset.action;
   if (!action) return;
   const id = e.target.closest('.page').dataset.id;
-  verseActions[action](state.items.find((i) => i.id === id).verse);
+  verseActions[action](state.items.find((i) => i.id === id).verse, e.target.closest('[data-action]'));
 });
+
+/** Likes are the journal's 'favourite' marks, so favourites saved before keep showing. */
+const LIKE = 'favourite';
+function showLiked(button, liked) {
+  button.setAttribute('aria-pressed', String(liked));
+  button.setAttribute('aria-label', liked ? 'Unlike' : 'Like');
+}
+verseActions.like = async (v, button) => {
+  if (button.dataset.busy) return;
+  button.dataset.busy = '1';
+  try {
+    const liked = await journal.toggleMark(LIKE, v.key);
+    showLiked(button, liked);
+    button.classList.remove('pop');
+    if (liked) {
+      void button.offsetWidth; // restarts the animation
+      button.classList.add('pop');
+    }
+  } finally {
+    delete button.dataset.busy;
+  }
+};
 
 const verseQuote = (v) => `“${v.text}” (${verseName(v)}, Sathyavedapusthakam)`;
 
@@ -1033,6 +1056,8 @@ jump.addEventListener('click', (e) => {
 
 const tabBar = document.getElementById('tabBar');
 const reflectionsView = document.getElementById('reflectionsView');
+const likedView = document.getElementById('likedView');
+const tabViews = { reflections: reflectionsView, liked: likedView };
 const bibleView = [feed, rail, document.querySelector('.topbar')];
 let tab = 'bible';
 
@@ -1041,7 +1066,7 @@ function showTab(name) {
   if (name === tab) return;
   tab = name;
   const reading = name === 'bible';
-  document.documentElement.classList.toggle('tab-reflections', !reading);
+  document.documentElement.classList.toggle('tab-away', !reading);
   for (const button of tabBar.querySelectorAll('[data-tab]')) {
     const selected = button.dataset.tab === name;
     button.classList.toggle('selected', selected);
@@ -1049,12 +1074,13 @@ function showTab(name) {
     else button.removeAttribute('aria-current');
   }
   for (const node of bibleView) node.inert = !reading;
-  reflectionsView.hidden = reading;
+  for (const [key, view] of Object.entries(tabViews)) view.hidden = key !== name;
   if (!reading) {
     clearTimeout(state.advanceTimer);
     endGlide();
-    renderReflections();
   }
+  if (name === 'reflections') renderReflections();
+  if (name === 'liked') renderLiked();
 }
 
 tabBar.addEventListener('click', (e) => {
@@ -1206,14 +1232,49 @@ for (const control of scrollingControls) {
   }
 }
 
-reflectionsList.addEventListener('click', (e) => {
-  const key = Number(e.target.closest('.reflection-card')?.dataset.key);
-  if (!key) return;
-  rememberPlace();
-  const go = () => { showTab('bible'); goToVerse(key); };
-  if (reduceMotion.matches || !document.startViewTransition) go();
-  else document.startViewTransition(go);
-});
+// ---------- Liked tab ----------
+
+const likedList = document.getElementById('likedList');
+const likedEmpty = document.getElementById('likedEmpty');
+
+function likedCard(mark) {
+  const v = unpackKey(mark.verseKey);
+  const card = el('button', { className: 'reflection-card' },
+    el('span', { className: 'reflection-top' },
+      el('span', { textContent: v ? verseName(v) : '' }),
+      el('span', { className: 'reflection-time', textContent: timeOf(mark) })),
+    el('span', { className: 'liked-verse', textContent: v ? bible.books[v.book - 1]?.[v.chapter - 1]?.[v.verse - 1] ?? '' : '' }));
+  card.dataset.key = mark.verseKey;
+  return card;
+}
+
+/** Newest first, under a heading for the day each verse was liked, like Reflections. */
+async function renderLiked() {
+  if (!journal) return;
+  const marks = await journal.marks(LIKE);
+  if (tab !== 'liked') return;
+  const days = [];
+  for (const mark of marks) {
+    const name = dayName(mark.createdAt);
+    if (days.at(-1)?.name !== name) days.push({ name, list: el('ul', { className: 'reflection-cards' }) });
+    days.at(-1).list.append(el('li', {}, likedCard(mark)));
+  }
+  likedList.replaceChildren(...days.map(({ name, list }) => el('section', { className: 'reflection-day' },
+    el('h2', { className: 'section-label', textContent: name }), list)));
+  likedEmpty.hidden = marks.length > 0;
+  likedView.scrollTop = 0;
+}
+
+for (const list of [reflectionsList, likedList]) {
+  list.addEventListener('click', (e) => {
+    const key = Number(e.target.closest('.reflection-card')?.dataset.key);
+    if (!key) return;
+    rememberPlace();
+    const go = () => { showTab('bible'); goToVerse(key); };
+    if (reduceMotion.matches || !document.startViewTransition) go();
+    else document.startViewTransition(go);
+  });
+}
 
 // ---------- Backup ----------
 // A backup is one readable JSON file the person saves to iCloud Drive through the share sheet.
