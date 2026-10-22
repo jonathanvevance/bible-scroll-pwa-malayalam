@@ -377,7 +377,6 @@ button {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.action svg .dot { fill: currentColor; stroke: none; }
 .action-count { font-size: 12px; font-weight: 600; line-height: 1; margin-top: 2px; }
 .action-count:empty { display: none; }
 .like[aria-pressed="true"] svg { fill: var(--destructive); stroke: var(--destructive); }
@@ -807,7 +806,6 @@ html:has(dialog[open]) .tab-bar {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.help-list svg .dot { fill: var(--accent); stroke: none; }
 .help-title { margin: 0; font-size: 16px; font-weight: 600; }
 .help-text { margin: 2px 0 0; font-size: 14px; line-height: 1.35; color: var(--fg-2); }
 
