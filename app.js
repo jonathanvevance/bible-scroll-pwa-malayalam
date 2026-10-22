@@ -1388,17 +1388,33 @@ function updateBackupStatus() {
   const last = Number(localStorage.getItem(LAST_BACKUP));
   const status = last ? `Last backup: ${backupTime(last)}`
     : reflectionTotal() + likeTotal() ? 'Never backed up' : 'Nothing to back up yet';
-  backupStatus.textContent = `${status}\nSave to Files, then iCloud Drive.`;
+  backupStatus.textContent = `${status}\nIncludes reflections and liked verses. Save to Files, then iCloud Drive.`;
 }
 
-const help = document.getElementById('help');
-document.getElementById('helpButton').addEventListener('click', () => help.showModal());
+function updateStats() {
+  const reflections = reflectionTotal();
+  const likes = likeTotal();
+  document.getElementById('reflectionStat').textContent = reflections;
+  document.getElementById('reflectionStatLabel').textContent = reflections === 1 ? 'Reflection' : 'Reflections';
+  document.getElementById('likeStat').textContent = likes;
+  document.getElementById('likeStatLabel').textContent = likes === 1 ? 'Liked verse' : 'Liked verses';
+}
 
-document.getElementById('backupButton').addEventListener('click', () => {
-  updateBackupStatus();
-  prepareBackup();
-  backup.showModal();
+// Backup and help cover the whole app, so they share one sheet, opened from Reflections and Liked.
+const help = document.getElementById('help');
+document.getElementById('helpButton').addEventListener('click', async () => {
+  await closeSheet(backup);
+  help.showModal();
 });
+
+for (const button of document.querySelectorAll('.you-button')) {
+  button.addEventListener('click', () => {
+    updateStats();
+    updateBackupStatus();
+    prepareBackup();
+    backup.showModal();
+  });
+}
 
 function backedUp(count) {
   localStorage.setItem(LAST_BACKUP, String(Date.now()));
@@ -1448,7 +1464,7 @@ async function shareBackup() {
 
 // Reminder: a backup is due when there are reflections or likes newer than the last backup and that
 // backup is over a week old (or there has never been one). A red dot marks the Reflections tab
-// and the backup button until then; the banner can be put off for a few days.
+// and the person buttons until then; the banner can be put off for a few days.
 
 const SNOOZED = 'ml.backupSnoozedUntil';
 const DAY_MS = 86_400_000;
