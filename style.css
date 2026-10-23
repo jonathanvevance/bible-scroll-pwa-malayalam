@@ -809,6 +809,10 @@ html:has(dialog[open]) .tab-bar {
 .help-title { margin: 0; font-size: 16px; font-weight: 600; }
 .help-text { margin: 2px 0 0; font-size: 14px; line-height: 1.35; color: var(--fg-2); }
 
+.moved-intro { margin: 0 4px 16px; font-size: 15px; line-height: 1.4; color: var(--fg-2); }
+#moved .help-list { margin-bottom: 22px; }
+#moved.nothing-to-move .moved-backup { display: none; }
+
 .list-footer {
   margin: -13px 16px 0;
   font-size: 13px;

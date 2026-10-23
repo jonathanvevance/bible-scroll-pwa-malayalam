@@ -229,6 +229,48 @@
     </div>
   </dialog>
 
+  <dialog id="moved" class="sheet fit floating">
+    <div class="sheet-inner">
+      <header class="sheet-header">
+        <span></span>
+        <h2>Bible Scroll has moved</h2>
+        <button class="text-button" data-close>Later</button>
+      </header>
+      <div class="sheet-body">
+        <p class="moved-intro">The Malayalam Bible has a new address. Your reflections and liked verses stay here until you move them.</p>
+        <ul class="card-list help-list">
+          <li class="moved-backup">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4 4 0 0 1-.5 8.5"/><path d="M12 20v-8m-3 3 3-3 3 3"/></svg>
+            <div><p class="help-title">Back up</p><p class="help-text">Tap Back Up Now below and save the file to Files.</p></div>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8.5v7M8.5 12h7"/></svg>
+            <div><p class="help-title">Open the new address</p><p class="help-text">In Safari, open <b>jonathanvevance.github.io/bible-scroll-pwa/ml/</b> and add it to your Home Screen.</p></div>
+          </li>
+          <li class="moved-backup">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 9.5a4 4 0 0 1-.5 8.5"/><path d="M12 12v8m-3-3 3 3 3-3"/></svg>
+            <div><p class="help-title">Restore</p><p class="help-text">In the new app, tap the person at the top of Reflections, then Restore from Backup, and pick the file.</p></div>
+          </li>
+        </ul>
+        <ul class="card-list links backup-list">
+          <li class="moved-backup">
+            <button id="movedBackup">
+              Back Up Now
+              <input type="checkbox" switch class="haptic" tabindex="-1" aria-hidden="true">
+            </button>
+          </li>
+          <li>
+            <button id="movedCopy">
+              Copy New Address
+              <input type="checkbox" switch class="haptic" tabindex="-1" aria-hidden="true">
+            </button>
+          </li>
+        </ul>
+        <p class="list-footer moved-backup">When your reflections show up in the new app, you can delete this one.</p>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="help" class="sheet fit floating">
     <div class="sheet-inner">
       <header class="sheet-header">

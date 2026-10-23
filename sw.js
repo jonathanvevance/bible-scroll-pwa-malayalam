@@ -4,8 +4,9 @@
 // journal.js with a new app.js breaks the app).
 // Only runs over HTTPS (service workers need a secure origin).
 
-// Prefixed so the English app's caches on the same origin are left alone.
-const CACHE = 'bible-scroll-ml-v69';
+// Prefixed so the English app's caches on the same origin are left alone. Keep the number below
+// bible-scroll-pwa's: its Malayalam app uses the same names and would lose its cache to a higher one.
+const CACHE = 'bible-scroll-ml-v70';
 const ASSETS = [
   './', 'index.html', 'style.css', 'app.js', 'journal.js', 'books.js', 'mal1910.json',
   'manifest.webmanifest', 'icons/scroll-180.png', 'icons/scroll-192.png', 'icons/scroll-512.png',

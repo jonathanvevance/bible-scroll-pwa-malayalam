@@ -1292,6 +1292,7 @@ const backup = document.getElementById('backup');
 const backupStatus = document.getElementById('backupStatus');
 const backupNow = document.getElementById('backupNow');
 const bannerBackup = document.getElementById('bannerBackup');
+const movedBackup = document.getElementById('movedBackup');
 /**
  * Built ahead of the tap: iOS only allows sharing straight after one, with no waiting in between.
  * Any change to the reflections makes it stale (`invalidateBackup`).
@@ -1347,7 +1348,7 @@ async function backupFile() {
 }
 
 function setBackupEnabled(on) {
-  for (const button of [backupNow, bannerBackup]) {
+  for (const button of [backupNow, bannerBackup, movedBackup]) {
     button.disabled = !on;
     button.querySelector('.haptic').disabled = !on;
   }
@@ -1495,6 +1496,31 @@ document.getElementById('bannerLater').addEventListener('click', () => {
   backupBanner.hidden = true;
 });
 
+// Moved: this app now lives in bible-scroll-pwa under /ml/. A Home Screen app keeps its own
+// storage, so reflections only reach the new one through a backup.
+
+const moved = document.getElementById('moved');
+const MOVED_TO = 'https://jonathanvevance.github.io/bible-scroll-pwa/ml/';
+const MOVED_LATER = 'ml.movedSnoozedUntil';
+
+function showMoved() {
+  if (Date.now() < Number(localStorage.getItem(MOVED_LATER))) return;
+  moved.classList.toggle('nothing-to-move', !(reflectionTotal() + likeTotal()));
+  prepareBackup();
+  moved.showModal();
+}
+
+moved.addEventListener('close', () => localStorage.setItem(MOVED_LATER, String(Date.now() + 3 * DAY_MS)));
+movedBackup.addEventListener('click', shareBackup);
+document.getElementById('movedCopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(MOVED_TO);
+    toast('Address copied; paste it into Safari');
+  } catch {
+    alert(`Open this address in Safari:\n${MOVED_TO}`);
+  }
+});
+
 // Restore: merge only. Reflections already on the phone (same id) and verses already liked are
 // left as they are.
 
@@ -1575,6 +1601,7 @@ async function start() {
   state.settledID = begin.id;
   document.getElementById('loading').remove();
   updateBackupReminder();
+  showMoved();
 
   // Ask the browser not to evict our data under storage pressure.
   navigator.storage?.persist?.();
